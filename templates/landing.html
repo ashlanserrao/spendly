@@ -21,7 +21,7 @@
         </p>
         <div class="hero-actions">
             <a href="{{ url_for('register') }}" class="hero-btn">Create free account</a>
-            <a href="#features" class="hero-btn">See how it works</a>
+            <button type="button" class="hero-btn" id="how-it-works-btn">See how it works</button>
         </div>
     </div>
 
@@ -101,4 +101,58 @@
     </div>
 </section>
 
+<div class="video-modal" id="video-modal" hidden>
+    <div class="video-modal-backdrop" data-modal-close></div>
+    <div class="video-modal-dialog" role="dialog" aria-modal="true" aria-label="How Spendly works">
+        <button type="button" class="video-modal-close" data-modal-close aria-label="Close video">&times;</button>
+        <div class="video-modal-frame">
+            <!-- Placeholder video — swap the embed URL below for the real one. -->
+            <iframe
+                id="video-modal-iframe"
+                data-src="https://www.youtube.com/embed/aqz-KE-bpKQ?rel=0&amp;autoplay=1"
+                title="How Spendly works"
+                frameborder="0"
+                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen></iframe>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        var trigger = document.getElementById('how-it-works-btn');
+        var modal = document.getElementById('video-modal');
+        var iframe = document.getElementById('video-modal-iframe');
+
+        if (!trigger || !modal || !iframe) return;
+
+        function openModal() {
+            // src is only set on open, so the video never loads until asked for.
+            iframe.src = iframe.getAttribute('data-src');
+            modal.hidden = false;
+            document.body.classList.add('modal-open');
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            document.body.classList.remove('modal-open');
+            // Clearing src tears down the player, which stops audio immediately.
+            iframe.src = '';
+        }
+
+        trigger.addEventListener('click', openModal);
+
+        // Both the backdrop and the close button carry data-modal-close.
+        modal.addEventListener('click', function (event) {
+            if (event.target.hasAttribute('data-modal-close')) closeModal();
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) closeModal();
+        });
+    })();
+</script>
 {% endblock %}
