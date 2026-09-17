@@ -4,7 +4,7 @@ import os
 import sqlite3
 from datetime import date
 
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
@@ -46,6 +46,17 @@ def create_user(name, email, password):
         return None
     finally:
         conn.close()
+
+
+def verify_user(email, password):
+    """Return the user row if email and password match, or None if the email is unknown
+    or the password is wrong (both cases collapse to None on purpose)."""
+    user = get_user_by_email(email)
+    if user is None:
+        return None
+    if not check_password_hash(user["password_hash"], password):
+        return None
+    return user
 
 
 def init_db():
