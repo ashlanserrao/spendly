@@ -59,6 +59,34 @@ def verify_user(email, password):
     return user
 
 
+def get_user_by_id(user_id):
+    """Return the user row matching user_id, or None if no such user exists."""
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT id, name, email, created_at FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def get_expense_summary(user_id):
+    """Return a row with the expense count and total amount spent for user_id."""
+    conn = get_db()
+    try:
+        return conn.execute(
+            """
+            SELECT COUNT(*) AS count, SUM(amount) AS total
+            FROM expenses
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
 def init_db():
     """Create the users and expenses tables if they don't already exist."""
     conn = get_db()
