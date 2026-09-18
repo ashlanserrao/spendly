@@ -1,6 +1,17 @@
+from datetime import datetime
+
 from flask import Flask, redirect, render_template, request, session, url_for
 
-from database.db import create_user, get_db, get_user_by_email, init_db, seed_db, verify_user
+from database.db import (
+    create_user,
+    get_db,
+    get_expense_summary,
+    get_user_by_email,
+    get_user_by_id,
+    init_db,
+    seed_db,
+    verify_user,
+)
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key-not-for-production"  # development-only placeholder
@@ -66,6 +77,30 @@ def logout():
     return redirect(url_for("landing"))
 
 
+@app.route("/profile")
+def profile():
+    user_id = session.get("user_id")
+    if user_id is None:
+        return redirect(url_for("login"))
+
+    user = get_user_by_id(user_id)
+    if user is None:
+        session.pop("user_id", None)
+        return redirect(url_for("login"))
+
+    summary = get_expense_summary(user_id)
+    created_at = datetime.strptime(user["created_at"], "%Y-%m-%d %H:%M:%S")
+    member_since = created_at.strftime("%B ") + str(created_at.day) + created_at.strftime(", %Y")
+
+    return render_template(
+        "profile.html",
+        user=user,
+        member_since=member_since,
+        expense_count=summary["count"],
+        expense_total=summary["total"] or 0,
+    )
+
+
 @app.route("/terms")
 def terms():
     return render_template("terms.html")
@@ -79,11 +114,6 @@ def privacy():
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/profile")
-def profile():
-    return "Profile page — coming in Step 4"
-
 
 @app.route("/expenses/add")
 def add_expense():
