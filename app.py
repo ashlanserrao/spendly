@@ -1,11 +1,11 @@
-from datetime import datetime
-
 from flask import Flask, redirect, render_template, request, session, url_for
 
 from database.db import (
     create_user,
+    get_category_breakdown,
     get_db,
-    get_expense_summary,
+    get_recent_transactions,
+    get_summary_stats,
     get_user_by_email,
     get_user_by_id,
     init_db,
@@ -88,16 +88,16 @@ def profile():
         session.pop("user_id", None)
         return redirect(url_for("login"))
 
-    summary = get_expense_summary(user_id)
-    created_at = datetime.strptime(user["created_at"], "%Y-%m-%d %H:%M:%S")
-    member_since = created_at.strftime("%B ") + str(created_at.day) + created_at.strftime(", %Y")
+    summary_stats = get_summary_stats(user_id)
+    transactions = get_recent_transactions(user_id)
+    category_breakdown = get_category_breakdown(user_id)
 
     return render_template(
         "profile.html",
         user=user,
-        member_since=member_since,
-        expense_count=summary["count"],
-        expense_total=summary["total"] or 0,
+        summary_stats=summary_stats,
+        transactions=transactions,
+        category_breakdown=category_breakdown,
     )
 
 

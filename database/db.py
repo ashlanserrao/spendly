@@ -2,7 +2,7 @@
 
 import os
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -60,22 +60,32 @@ def verify_user(email, password):
 
 
 def get_user_by_id(user_id):
-    """Return the user row matching user_id, or None if no such user exists."""
+    """Return a dict with the user's id, name, email, created_at, and a
+    human-readable member_since ("Month YYYY"), or None if no such user exists."""
     conn = get_db()
     try:
-        return conn.execute(
+        row = conn.execute(
             "SELECT id, name, email, created_at FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
     finally:
         conn.close()
 
+    if row is None:
+        return None
 
-def get_expense_summary(user_id):
-    """Return a row with the expense count and total amount spent for user_id."""
+    user = dict(row)
+    created_at = datetime.strptime(user["created_at"], "%Y-%m-%d %H:%M:%S")
+    user["member_since"] = created_at.strftime("%B %Y")
+    return user
+
+
+def get_summary_stats(user_id):
+    """Return total_spent, transaction_count, and top_category for user_id.
+    Returns zeros/placeholder if the user has no expenses."""
     conn = get_db()
     try:
-        return conn.execute(
+        summary = conn.execute(
             """
             SELECT COUNT(*) AS count, SUM(amount) AS total
             FROM expenses
@@ -83,8 +93,83 @@ def get_expense_summary(user_id):
             """,
             (user_id,),
         ).fetchone()
+        top = conn.execute(
+            """
+            SELECT category, SUM(amount) AS category_total
+            FROM expenses
+            WHERE user_id = ?
+            GROUP BY category
+            ORDER BY category_total DESC
+            LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
     finally:
         conn.close()
+
+    count = summary["count"] or 0
+    if count == 0:
+        return {"total_spent": 0, "transaction_count": 0, "top_category": "—"}
+
+    return {
+        "total_spent": summary["total"] or 0,
+        "transaction_count": count,
+        "top_category": top["category"],
+    }
+
+
+def get_recent_transactions(user_id, limit=10):
+    """Return up to `limit` most recent expenses for user_id, newest-first
+    (by date, then id as a tiebreaker), as a list of dicts."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT date, description, category, amount
+            FROM expenses
+            WHERE user_id = ?
+            ORDER BY date DESC, id DESC
+            LIMIT ?
+            """,
+            (user_id, limit),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_category_breakdown(user_id):
+    """Return per-category totals and integer percentages (summing to 100)
+    for user_id, ordered by amount desc. Empty list if no expenses."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT category, SUM(amount) AS amount
+            FROM expenses
+            WHERE user_id = ?
+            GROUP BY category
+            ORDER BY amount DESC
+            """,
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return []
+
+    total = sum(row["amount"] for row in rows)
+    breakdown = [
+        {"name": row["category"], "amount": row["amount"], "pct": int((row["amount"] / total) * 100)}
+        for row in rows
+    ]
+
+    remainder = 100 - sum(item["pct"] for item in breakdown)
+    if remainder:
+        breakdown[0]["pct"] += remainder  # rows are already amount-desc, so [0] is the largest category
+
+    return breakdown
 
 
 def init_db():
