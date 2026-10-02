@@ -27,6 +27,18 @@
     font-weight: 500;
 }
 
+.filter-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .profile-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
