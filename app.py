@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Flask, redirect, render_template, request, session, url_for
 
 from database.db import (
@@ -15,6 +17,16 @@ from database.db import (
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key-not-for-production"  # development-only placeholder
+
+
+def _parse_date(value):
+    """Return value if it is a strict YYYY-MM-DD date, None if blank; raise ValueError otherwise."""
+    if not value:
+        return None
+    parsed = datetime.strptime(value, "%Y-%m-%d")
+    if parsed.strftime("%Y-%m-%d") != value:
+        raise ValueError(value)
+    return value
 
 
 # ------------------------------------------------------------------ #
@@ -88,9 +100,26 @@ def profile():
         session.pop("user_id", None)
         return redirect(url_for("login"))
 
-    summary_stats = get_summary_stats(user_id)
-    transactions = get_recent_transactions(user_id)
-    category_breakdown = get_category_breakdown(user_id)
+    start_date = request.args.get("start_date", "").strip()
+    end_date = request.args.get("end_date", "").strip()
+    filter_error = None
+    try:
+        start_date = _parse_date(start_date)
+        end_date = _parse_date(end_date)
+    except ValueError:
+        filter_error = "Enter valid dates in YYYY-MM-DD format."
+    else:
+        if start_date and end_date and start_date > end_date:
+            filter_error = "Start date must be on or before end date."
+
+    if filter_error:
+        start_date = end_date = None
+
+    summary_stats = get_summary_stats(user_id, start_date, end_date)
+    transactions = get_recent_transactions(
+        user_id, start_date=start_date, end_date=end_date
+    )
+    category_breakdown = get_category_breakdown(user_id, start_date, end_date)
 
     return render_template(
         "profile.html",
@@ -98,6 +127,10 @@ def profile():
         summary_stats=summary_stats,
         transactions=transactions,
         category_breakdown=category_breakdown,
+        start_date=start_date,
+        end_date=end_date,
+        filter_error=filter_error,
+        filter_active=bool(start_date or end_date),
     )
 
 
